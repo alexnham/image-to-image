@@ -35,4 +35,9 @@ describe("fitWithin", () => {
   it("never upscales", () => {
     expect(fitWithin(800, 600)).toEqual({ width: 800, height: 600 });
   });
+
+  it("keeps both dimensions nonzero for very narrow images", () => {
+    expect(fitWithin(5000, 1)).toEqual({ width: 2048, height: 1 });
+    expect(fitWithin(1, 5000)).toEqual({ width: 1, height: 2048 });
+  });
 });
