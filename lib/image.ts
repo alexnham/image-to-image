@@ -20,7 +20,10 @@ export function validateFile(file: { type: string; name: string; size: number })
 
 export function fitWithin(width: number, height: number, max = MAX_EDGE) {
   const scale = Math.min(1, max / Math.max(width, height));
-  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
 }
 
 /**
