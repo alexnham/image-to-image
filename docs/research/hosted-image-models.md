@@ -74,9 +74,27 @@ What we need: positive and negative clicks that give a mask, then a soft alpha m
 
 ### Prototype verdict
 
-**Works with caveats.** The low-frequency transfer retained visible surface detail and the original silhouette across five real objects when the relit image was closely aligned. A distorted relight still transferred spurious lighting. For #8, use the existing alpha-weighted gain transfer with an aligned relight and retain the original alpha. If the provider cannot keep the image aligned, use bounded exposure and white-balance adjustments on the original subject and omit directional relighting.
+**Works with caveats.** The low-frequency transfer retained visible surface detail, lettering, and the original silhouette across aligned samples. It can also transfer false highlights, color fringes, and light that differs from the requested target. For #8, use the existing alpha-weighted gain transfer when the relight is aligned and its lighting matches the scene. If the relight shifts the subject or introduces unwanted lighting, use bounded exposure and white-balance adjustments on the original subject and omit directional relighting.
 
-The prototype replayed published [LightSwitch results](https://yehonathanlitman.github.io/light_switch/#scene-pills) on [Objects With Lighting](https://github.com/isl-org/objects-with-lighting), plus one Neural Gaffer output from the same gallery as a stress case. The [LightSwitch paper](https://openaccess.thecvf.com/content/ICCV2025/html/Litman_LightSwitch_Multi-view_Relighting_with_Material-guided_Diffusion_ICCV_2025_paper.html) reports two target environment maps per object for this benchmark. Panels were 320 × 288 with an approximate foreground matte from the original white background. Bria FIBO, 2048 px inputs, glass, and small product lettering still need a live evaluation.
+#### Live IC-Light results
+
+The free [IC-Light demo](https://huggingface.co/spaces/lllyasviel/IC-Light) generated one result per photo at 512 × 512 with seed 12345, 20 steps, CFG 2, and high-resolution scale 1. The source photos were centered with their alpha mattes. The model received the same frames flattened onto white, and the transfer used the original alpha and radius 16. The Bria FIBO endpoint and 2048 px inputs remain unverified.
+
+| Original photo | Target light and initial latent | Observation |
+|---|---|---|
+| [Handheld console by OliverGalvin](https://commons.wikimedia.org/wiki/File:Neo-Geo-Pocket-Color-Anthra-Left.png) | Soft overcast daylight, None | A cool shift carried onto the screen and case. The original logo and case texture remained sharp, and scratches introduced by the model were absent from the transfer. |
+| [Arcadia watch by suebun](https://commons.wikimedia.org/wiki/File:1859pocketwatch.png) | Hard studio light from the left, Left Light | The original dial, logo, and worn spots remained visible after transfer, with a darker right edge. |
+| [Candy tin by Michel VENOT](https://commons.wikimedia.org/wiki/File:Cachou_lajaunie.png) | Overhead spotlight, Top Light | The original lettering survived, with a blue edge fringe and clipped yellow highlights where the raw render changed the lid and rim. |
+| [Ceramic cup by Aka and Romainhk](https://commons.wikimedia.org/wiki/File:Tasse_de_chocolat.png) | Low warm morning light from the right, Right Light | The face, spoon, and handle kept their original forms. The handle and rim picked up a cool fringe from the relight. |
+| [Cola bottle by Jorgebarrios and RanZag](https://commons.wikimedia.org/wiki/File:CocaColaBottle_background_free.png) | Cool blue hour, None | The original label and bottle shape survived. The transfer carried the model's warm backlight, so it missed the requested cool target. |
+
+![Five live comparisons with the original photo, raw IC-Light result, and low-frequency transfer](relight-comparison.webp)
+
+The comparison resizes and relights the credited photos and is shared under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The console source is [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+#### Published comparison results
+
+The prototype also replayed published [LightSwitch results](https://yehonathanlitman.github.io/light_switch/#scene-pills) on [Objects With Lighting](https://github.com/isl-org/objects-with-lighting), plus one Neural Gaffer output from the same gallery as a stress case. The [LightSwitch paper](https://openaccess.thecvf.com/content/ICCV2025/html/Litman_LightSwitch_Multi-view_Relighting_with_Material-guided_Diffusion_ICCV_2025_paper.html) reports two target environment maps per object for this benchmark. Panels were 320 × 288 with an approximate foreground matte from the original white background.
 
 | Object | Clip time | Observation |
 |---|---:|---|
