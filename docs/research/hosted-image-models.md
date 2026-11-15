@@ -72,6 +72,29 @@ What we need: positive and negative clicks that give a mask, then a soft alpha m
 | Stability Replace Background & Relight | Stability | $0.08 ([pricing](https://docs.stability.ai/pricing)) | `light_reference` image or `light_source_direction`; `keep_original_background` relights without swapping ([API ref](https://docs.stability.ai/api-reference/edit/replace-background-and-relight-async.md)). Can use our generated background as `background_reference`. Extra account. |
 | Photoroom AI Relight | Photoroom | Plus plan, $0.10 ([pricing](https://www.photoroom.com/api/pricing)) | Exposure correction only (`ai.auto`, `ai.preserve-hue-and-saturation`, `ai.optimize-portrait`); not documented as matching a background ([AI Relight](https://docs.photoroom.com/image-editing-api-plus-plan/ai-relight.md)). Not a fit. |
 
+### Prototype verdict
+
+**Works with caveats.** The low-frequency transfer retained visible surface detail and the original silhouette across five real objects when the relit image was closely aligned. A distorted relight still transferred spurious lighting. For #8, use the existing alpha-weighted gain transfer with an aligned relight and retain the original alpha. If the provider cannot keep the image aligned, use bounded exposure and white-balance adjustments on the original subject and omit directional relighting.
+
+The prototype replayed published [LightSwitch results](https://yehonathanlitman.github.io/light_switch/#scene-pills) on [Objects With Lighting](https://github.com/isl-org/objects-with-lighting), plus one Neural Gaffer output from the same gallery as a stress case. The [LightSwitch paper](https://openaccess.thecvf.com/content/ICCV2025/html/Litman_LightSwitch_Multi-view_Relighting_with_Material-guided_Diffusion_ICCV_2025_paper.html) reports two target environment maps per object for this benchmark. Panels were 320 × 288 with an approximate foreground matte from the original white background. Bria FIBO, 2048 px inputs, glass, and small product lettering still need a live evaluation.
+
+| Object | Clip time | Observation |
+|---|---:|---|
+| Painted figurine | 1.5 s | Warmer light carried over and the original suit seams and paint edges remained visible. |
+| Chest with metal fittings | 4.5 s | The light shift was subtle. The original panel joins and fittings remained defined. |
+| Gamepad | 1.5 s | The tint shifted while button outlines and the thin orange trim stayed visible. |
+| Patterned porcelain mug | 3.0 s | Cooler light carried over and the original band pattern stayed distinct. |
+| Wooden bowl | 4.5 s | The strong cool shift kept the grain that the raw result softened, with a narrow colored fringe at the rim. |
+| Gamepad, Neural Gaffer | 1.5 s | The original shape survived, but a bright patch in the raw result became false shading on the grip. |
+
+To regenerate a comparison from an original with an alpha matte and a same-size, aligned relight, run this from the repo after `npm ci`. Pass `8` for the small gallery crops or omit the radius to use the app default of `16`.
+
+```sh
+npx --no-install jiti scripts/compare-relight.ts original.png relit.png comparison.png 8
+```
+
+The panels show original, raw relight, and transfer from left to right. For the gallery comparisons, crop each selected frame to 320 × 288 starting at y=48. The input column starts at x=1280, LightSwitch at x=320, and Neural Gaffer at x=960. Starting at the input crop's border, flood-fill connected pixels with all RGB channels at least 250 to zero alpha.
+
 ---
 
 ## 4. Contact shadows and reflections
