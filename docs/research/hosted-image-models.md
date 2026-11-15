@@ -72,6 +72,61 @@ What we need: positive and negative clicks that give a mask, then a soft alpha m
 | Stability Replace Background & Relight | Stability | $0.08 ([pricing](https://docs.stability.ai/pricing)) | `light_reference` image or `light_source_direction`; `keep_original_background` relights without swapping ([API ref](https://docs.stability.ai/api-reference/edit/replace-background-and-relight-async.md)). Can use our generated background as `background_reference`. Extra account. |
 | Photoroom AI Relight | Photoroom | Plus plan, $0.10 ([pricing](https://www.photoroom.com/api/pricing)) | Exposure correction only (`ai.auto`, `ai.preserve-hue-and-saturation`, `ai.optimize-portrait`); not documented as matching a background ([AI Relight](https://docs.photoroom.com/image-editing-api-plus-plan/ai-relight.md)). Not a fit. |
 
+### Prototype verdict
+
+**Works with caveats.** For #8, use the bounded brightness-only transfer for subtle exposure matching when the relight is aligned and its lighting matches the scene. The original color and matte carry through. If the relight shifts the subject or misses the requested light, keep the original subject lighting. Large changes in lighting direction still need validation.
+
+#### Live IC-Light results
+
+The free [IC-Light demo](https://huggingface.co/spaces/lllyasviel/IC-Light) generated one result per photo at 512 × 512 with seed 12345, 20 steps, CFG 2, and high-resolution scale 1. The source photos were centered with their alpha mattes. The model received the same frames flattened onto white, and the transfer used the original alpha and radius 16. The Bria FIBO endpoint and 2048 px inputs remain unverified.
+
+| Original photo | Target light and initial latent | Observation |
+|---|---|---|
+| [Handheld console by OliverGalvin](https://commons.wikimedia.org/wiki/File:Neo-Geo-Pocket-Color-Anthra-Left.png) | Soft overcast daylight, None | A cool shift carried onto the screen and case. The original logo and case texture remained sharp, and scratches introduced by the model were absent from the transfer. |
+| [Arcadia watch by suebun](https://commons.wikimedia.org/wiki/File:1859pocketwatch.png) | Hard studio light from the left, Left Light | The original dial, logo, and worn spots remained visible after transfer, with a darker right edge. |
+| [Candy tin by Michel VENOT](https://commons.wikimedia.org/wiki/File:Cachou_lajaunie.png) | Overhead spotlight, Top Light | The original lettering survived, with a blue edge fringe and clipped yellow highlights where the raw render changed the lid and rim. |
+| [Ceramic cup by Aka and Romainhk](https://commons.wikimedia.org/wiki/File:Tasse_de_chocolat.png) | Low warm morning light from the right, Right Light | The face, spoon, and handle kept their original forms. The handle and rim picked up a cool fringe from the relight. |
+| [Cola bottle by Jorgebarrios and RanZag](https://commons.wikimedia.org/wiki/File:CocaColaBottle_background_free.png) | Cool blue hour, None | The original label and bottle shape survived. The transfer carried the model's warm backlight, so it missed the requested cool target. |
+
+![Five live comparisons with the original photo, raw IC-Light result, and low-frequency transfer](relight-comparison.webp)
+
+The comparison resizes and relights the credited photos and is shared under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The console source is [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+#### Comparison on shared backdrops
+
+Each row uses the same studio backdrop and shadow for all three versions. Brightness-only transfer computes one gain from blurred linear luminance, limits it to about ±0.43 stops, and tapers it near the matte boundary. It scales all three channels equally in linear light and caps the gain before any channel clips.
+
+![Original, RGB transfer, and brightness-only or fallback composited onto identical backdrops](relight-backdrop-comparison.webp)
+
+The tin loses the purple fringe and keeps the yellow label. The cup loses the cyan rim and handle fringe, with a much smaller lighting change than the RGB transfer. The bottle shows the original lighting in the last panel because the model produced warm backlight for a cool-blue target. The backdrop comparison uses the same credited photos and [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+
+Pass a backdrop as the fifth argument to compare the original, RGB transfer, and brightness-only transfer. Append `--reject-relight` when visual review rejects the model output. The last panel then keeps the original subject lighting.
+
+```sh
+npx --no-install jiti scripts/compare-relight.ts original.png relit.png comparison.png 16 backdrop.png
+```
+
+#### Published comparison results
+
+The prototype also replayed published [LightSwitch results](https://yehonathanlitman.github.io/light_switch/#scene-pills) on [Objects With Lighting](https://github.com/isl-org/objects-with-lighting), plus one Neural Gaffer output from the same gallery as a stress case. The [LightSwitch paper](https://openaccess.thecvf.com/content/ICCV2025/html/Litman_LightSwitch_Multi-view_Relighting_with_Material-guided_Diffusion_ICCV_2025_paper.html) reports two target environment maps per object for this benchmark. Panels were 320 × 288 with an approximate foreground matte from the original white background.
+
+| Object | Clip time | Observation |
+|---|---:|---|
+| Painted figurine | 1.5 s | Warmer light carried over and the original suit seams and paint edges remained visible. |
+| Chest with metal fittings | 4.5 s | The light shift was subtle. The original panel joins and fittings remained defined. |
+| Gamepad | 1.5 s | The tint shifted while button outlines and the thin orange trim stayed visible. |
+| Patterned porcelain mug | 3.0 s | Cooler light carried over and the original band pattern stayed distinct. |
+| Wooden bowl | 4.5 s | The strong cool shift kept the grain that the raw result softened, with a narrow colored fringe at the rim. |
+| Gamepad, Neural Gaffer | 1.5 s | The original shape survived, but a bright patch in the raw result became false shading on the grip. |
+
+To regenerate a comparison from an original with an alpha matte and a same-size, aligned relight, run this from the repo after `npm ci`. Pass `8` for the small gallery crops or omit the radius to use the app default of `16`.
+
+```sh
+npx --no-install jiti scripts/compare-relight.ts original.png relit.png comparison.png 8
+```
+
+The panels show original, raw relight, and transfer from left to right. For the gallery comparisons, crop each selected frame to 320 × 288 starting at y=48. The input column starts at x=1280, LightSwitch at x=320, and Neural Gaffer at x=960. Starting at the input crop's border, flood-fill connected pixels with all RGB channels at least 250 to zero alpha.
+
 ---
 
 ## 4. Contact shadows and reflections
