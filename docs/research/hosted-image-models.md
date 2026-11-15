@@ -74,7 +74,7 @@ What we need: positive and negative clicks that give a mask, then a soft alpha m
 
 ### Prototype verdict
 
-**Works with caveats.** The low-frequency transfer retained visible surface detail, lettering, and the original silhouette across aligned samples. It can also transfer false highlights, color fringes, and light that differs from the requested target. For #8, use the existing alpha-weighted gain transfer when the relight is aligned and its lighting matches the scene. If the relight shifts the subject or introduces unwanted lighting, use bounded exposure and white-balance adjustments on the original subject and omit directional relighting.
+**Works with caveats.** For #8, use the bounded brightness-only transfer for subtle exposure matching when the relight is aligned and its lighting matches the scene. The original color and matte carry through. If the relight shifts the subject or misses the requested light, keep the original subject lighting. Large changes in lighting direction still need validation.
 
 #### Live IC-Light results
 
@@ -91,6 +91,20 @@ The free [IC-Light demo](https://huggingface.co/spaces/lllyasviel/IC-Light) gene
 ![Five live comparisons with the original photo, raw IC-Light result, and low-frequency transfer](relight-comparison.webp)
 
 The comparison resizes and relights the credited photos and is shared under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The console source is [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+#### Comparison on shared backdrops
+
+Each row uses the same studio backdrop and shadow for all three versions. Brightness-only transfer computes one gain from blurred linear luminance, limits it to about ±0.43 stops, and tapers it near the matte boundary. It scales all three channels equally in linear light and caps the gain before any channel clips.
+
+![Original, RGB transfer, and brightness-only or fallback composited onto identical backdrops](relight-backdrop-comparison.webp)
+
+The tin loses the purple fringe and keeps the yellow label. The cup loses the cyan rim and handle fringe, with a much smaller lighting change than the RGB transfer. The bottle shows the original lighting in the last panel because the model produced warm backlight for a cool-blue target. The backdrop comparison uses the same credited photos and [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+
+Pass a backdrop as the fifth argument to compare the original, RGB transfer, and brightness-only transfer. Append `--reject-relight` when visual review rejects the model output. The last panel then keeps the original subject lighting.
+
+```sh
+npx --no-install jiti scripts/compare-relight.ts original.png relit.png comparison.png 16 backdrop.png
+```
 
 #### Published comparison results
 
