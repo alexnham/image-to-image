@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  outputFileTracingIncludes: {
+    "/api/projects/*/export": ["./public/fonts/**"],
+    "/api/projects/*/edit": ["./public/fonts/**"],
+    "/api/projects/*/text": ["./public/fonts/**"],
+  },
+  serverExternalPackages: ["sharp"],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

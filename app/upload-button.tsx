@@ -1,11 +1,12 @@
 "use client";
 
 import { upload } from "@vercel/blob/client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createProject } from "@/app/actions";
 import { prepareImage, validateFile } from "@/lib/image";
 
 export function UploadButton({ userId }: { userId: string }) {
+  const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const busy = status === "Preparing…" || status === "Uploading…";
 
@@ -27,18 +28,35 @@ export function UploadButton({ userId }: { userId: string }) {
       await createProject(blob.pathname);
     } catch (e) {
       // redirect() from the server action surfaces as a thrown navigation; let it through.
-      if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e;
+      if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT"))
+        throw e;
       setStatus("Upload failed. Please try again.");
     }
   }
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <label className="cursor-pointer rounded-full bg-foreground px-6 py-3 font-medium text-background aria-disabled:opacity-50" aria-disabled={busy}>
+      <button
+        className="primary"
+        disabled={busy}
+        onClick={() => input.current?.click()}
+      >
         {busy ? status : "Upload a photo"}
-        <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="sr-only" onChange={onChange} disabled={busy} />
-      </label>
-      {status && !busy && <p role="alert" className="text-sm text-red-600">{status}</p>}
+      </button>
+      <input
+        ref={input}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+        className="sr-only"
+        onChange={onChange}
+        disabled={busy}
+      />
+
+      {status && !busy && (
+        <p role="alert" className="text-sm text-red-600">
+          {status}
+        </p>
+      )}
     </div>
   );
 }

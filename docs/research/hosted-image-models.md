@@ -1,3 +1,9 @@
+> Superseded for implementation (2026-11-18): the POC uses OpenAI image edits,
+> OpenAI planning/OCR (owner-approved), local U-2-Netp segmentation and local
+> relighting/shadows. See [measured POC results](../poc/verification.md).
+> The fal recommendations, retention controls and estimated totals below are
+> historical research, not the current provider configuration.
+
 # Hosted image models for the ad editor
 
 Researched 2026-11-13. All prices are list prices read on that date from the cited page. Every claim has a URL. Anything marked **UNVERIFIED** could not be confirmed from a primary source. Latency figures are scarce in primary docs, so treat them all as "measure before you commit."

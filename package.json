@@ -7,7 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "node scripts/migrate.mjs",
+    "metrics": "node scripts/metrics.mjs",
+    "test:live": "node scripts/smoke.mjs --live",
+    "postinstall": "node scripts/copy-onnx.mjs",
+    "predev": "node scripts/copy-onnx.mjs",
+    "prebuild": "node scripts/copy-onnx.mjs",
+    "test:db": "RUN_DATABASE_TESTS=1 vitest run lib/server/runtime.test.ts",
+    "test:editor": "node scripts/check-editor.mjs --live"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",
@@ -15,8 +23,10 @@
     "heic-to": "^1.6.7",
     "next": "16.4.6",
     "next-auth": "^5.0.0-beta.32",
+    "onnxruntime-web": "^1.31.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "sharp": "^0.35.5",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -29,5 +39,10 @@
     "tailwindcss": "4.3.3",
     "typescript": "^5",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
   }
 }

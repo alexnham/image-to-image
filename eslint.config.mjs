@@ -8,13 +8,17 @@ const eslintConfig = defineConfig([
   {
     rules: {
       // `{ op: _, ...rest }` drops a field on purpose.
-      "@typescript-eslint/no-unused-vars": ["warn", { varsIgnorePattern: "^_", ignoreRestSiblings: true }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { varsIgnorePattern: "^_", ignoreRestSiblings: true },
+      ],
     },
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "public/onnx/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
