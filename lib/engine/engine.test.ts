@@ -69,6 +69,7 @@ describe("runPrompt", () => {
     const subject = store.versions[1].layers.subject;
     expect(subject.original).toBe("subject-original");
     expect(subject.matte).toBe("matte");
+    expect(subject.lighting).toEqual({direction:"left",warmth:0.3,softness:0.5});
   });
 
   it("saves nothing when a step fails", async () => {

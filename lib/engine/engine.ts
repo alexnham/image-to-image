@@ -41,6 +41,7 @@ export type Layers = {
     y: number;
     scale: number;
     flipped: boolean;
+    lighting?: RelightParams;
   };
   shadow: ImageRef | null;
   texts: TextLayer[];
@@ -120,6 +121,7 @@ async function apply(
         subject: {
           ...layers.subject,
           image: await providers.relight(layers, light),
+          lighting: light,
         },
       };
     }

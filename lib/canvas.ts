@@ -1,3 +1,4 @@
+import { frame } from "./frame";
 import { FONT_FAMILIES } from "./fonts";
 import { adjustPixels } from "./pixels";
 import type { Layers } from "./engine/engine";
@@ -55,7 +56,7 @@ export async function drawLayers(
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (const t of layers.texts) {
-    ctx.font = `700 ${t.size * width}px \"${FONT_FAMILIES[t.font ?? "sans"]}\"`;
+    ctx.font = `700 ${t.size * width}px "${FONT_FAMILIES[t.font ?? "sans"]}"`;
     ctx.fillStyle = t.color;
     ctx.fillText(t.text, t.x * width, t.y * height);
   }
@@ -67,25 +68,27 @@ export async function drawLayers(
   rc.translate(rotated.width / 2, rotated.height / 2);
   rc.rotate((rotation * Math.PI) / 180);
   rc.drawImage(base, -width / 2, -height / 2);
-  const ratio =
-    layers.crop === "square"
-      ? 1
-      : layers.crop === "portrait"
-        ? 4 / 5
-        : rotated.width / rotated.height;
-  canvas.width = Math.round(Math.min(rotated.width, rotated.height * ratio));
-  canvas.height = Math.round(canvas.width / ratio);
+  const {
+    left,
+    top,
+    width: cropWidth,
+    height: cropHeight,
+    outputWidth,
+    outputHeight,
+  } = frame(width, height, layers);
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
   canvas
     .getContext("2d")!
     .drawImage(
       rotated,
-      Math.floor((rotated.width - canvas.width) / 2),
-      Math.floor((rotated.height - canvas.height) / 2),
-      canvas.width,
-      canvas.height,
+      left,
+      top,
+      cropWidth,
+      cropHeight,
       0,
       0,
-      canvas.width,
-      canvas.height,
+      outputWidth,
+      outputHeight,
     );
 }

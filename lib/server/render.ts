@@ -1,3 +1,4 @@
+import { frame } from "@/lib/frame";
 import { FONT_FAMILIES, FONT_FILES } from "@/lib/fonts";
 import path from "node:path";
 import { adjustPixels } from "@/lib/pixels";
@@ -82,18 +83,22 @@ export async function render(layers: Layers, text = true, finish = true) {
   if (finish) {
     let output = sharp(image).rotate(layers.rotation ?? 0);
     if (layers.crop && layers.crop !== "original") {
-      const rotated = (layers.rotation ?? 0) % 180 !== 0;
-      const w = rotated ? height : width,
-        h = rotated ? width : height;
-      const ratio = layers.crop === "square" ? 1 : 4 / 5;
-      const cw = Math.round(Math.min(w, h * ratio)),
-        ch = Math.round(cw / ratio);
-      output = sharp(await output.png().toBuffer()).extract({
-        left: Math.floor((w - cw) / 2),
-        top: Math.floor((h - ch) / 2),
-        width: cw,
-        height: ch,
-      });
+      const {
+        left,
+        top,
+        width: cropWidth,
+        height: cropHeight,
+        outputWidth,
+        outputHeight,
+      } = frame(width, height, layers);
+      output = sharp(await output.png().toBuffer())
+        .extract({
+          left,
+          top,
+          width: cropWidth,
+          height: cropHeight,
+        })
+        .resize(outputWidth, outputHeight, { fit: "fill" });
     }
     image = await output.png().toBuffer();
   }

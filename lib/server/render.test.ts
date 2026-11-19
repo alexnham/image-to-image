@@ -100,3 +100,75 @@ it("composites exact opaque subject pixels over a generated scene and exports cr
   const meta = await sharp(cropped).metadata();
   expect(meta.width! / meta.height!).toBe(0.8);
 }, 15000);
+
+it("exports a valid exact 4:5 PNG from odd landscape dimensions", async () => {
+  const image = await sharp({
+    create: { width: 2048, height: 1367, channels: 4, background: "#aabbcc" },
+  })
+    .png()
+    .toBuffer();
+  files.set("odd-background", image);
+  files.set(
+    "odd-subject",
+    await sharp({
+      create: {
+        width: 2048,
+        height: 1367,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .png()
+      .toBuffer(),
+  );
+  const output = await render({
+    background: "odd-background",
+    subject: {
+      original: "odd-subject",
+      image: "odd-subject",
+      matte: "m",
+      x: 0.5,
+      y: 0.5,
+      scale: 1,
+      flipped: false,
+    },
+    shadow: null,
+    texts: [],
+    adjust: { brightness: 0, contrast: 0, saturation: 0, warmth: 0, grain: 0 },
+    crop: "portrait",
+  });
+  const meta = await sharp(output).metadata();
+  expect(meta.width! / meta.height!).toBe(0.8);
+  expect(meta.width).toBeLessThanOrEqual(2048);
+  expect(meta.height).toBeLessThanOrEqual(1367);
+});
+
+it.each([
+  [1, 2048],
+  [2048, 1],
+])("exports exact 4:5 even for a %i×%i upload", async (width, height) => {
+  const image = await sharp({
+    create: { width, height, channels: 4, background: "#aabbcc" },
+  })
+    .png()
+    .toBuffer();
+  files.set("narrow", image);
+  const output = await render({
+    background: "narrow",
+    subject: {
+      original: "narrow",
+      image: "narrow",
+      matte: "m",
+      x: 0.5,
+      y: 0.5,
+      scale: 1,
+      flipped: false,
+    },
+    texts: [],
+    shadow: null,
+    adjust: { brightness: 0, contrast: 0, saturation: 0, warmth: 0, grain: 0 },
+    crop: "portrait",
+  });
+  const meta = await sharp(output).metadata();
+  expect(meta.width! / meta.height!).toBe(0.8);
+});

@@ -1,3 +1,4 @@
+import { cleanupMask } from "@/lib/cleanup-mask";
 import { ownsBlobPath } from "@/lib/blob-path";
 import type { TextLayer } from "@/lib/engine/engine";
 import { detectText } from "@/lib/server/planner";
@@ -12,7 +13,7 @@ import {
 } from "@/lib/server/access";
 import { readImage, decode, png, saveImage } from "@/lib/server/assets";
 import { versionStore, latest } from "@/lib/server/versions";
-import { extractSubject, overlapsMask } from "@/lib/pixels";
+import { extractSubject, overlapsMask, mergeRegion } from "@/lib/pixels";
 import { editImage, providers } from "@/lib/server/providers";
 import { EMPTY_ADJUST } from "@/lib/editor-schema";
 import { sql } from "@/lib/db";
@@ -62,46 +63,26 @@ export async function POST(
       (b) =>
         b.overlay && !overlapsMask(b, mask, original.width, original.height),
     );
-    // Clean the full background so old shadows do not remain after moving the product.
-    const editable = new Uint8ClampedArray(mask.length).fill(255);
-    const clean = await editImage(
-      await png(original),
-      editable,
-      "Recreate this same photographic setting, camera angle, and surface as an empty scene. Remove the product, its entire shadow and reflection. Remove added graphic headlines and prices from the background. Preserve physical signs. No product or additional objects.",
-    );
-    // Keep physical sign pixels outside the product; product labels live in the cutout.
     const signs = detected.filter(
       (b) =>
         !b.overlay && !overlapsMask(b, mask, original.width, original.height),
     );
-    const patches = await Promise.all(
-      signs.map(async (b) => {
-        const left = Math.max(0, Math.floor(b.x * original.width)),
-          top = Math.max(0, Math.floor(b.y * original.height));
-        const width = Math.max(
-            1,
-            Math.min(original.width - left, Math.ceil(b.w * original.width)),
-          ),
-          height = Math.max(
-            1,
-            Math.min(original.height - top, Math.ceil(b.h * original.height)),
-          );
-        return {
-          left,
-          top,
-          input: await sharp(source)
-            .extract({ left, top, width, height })
-            .png()
-            .toBuffer(),
-        };
-      }),
+    const editable = cleanupMask(
+      extractSubject(original, mask),
+      overlays,
+      signs,
+    );
+    const edited = await decode(
+      await editImage(
+        await png(original),
+        editable,
+        "Remove the selected product, nearby contact shadow, and masked graphic headlines/prices. Reconstruct only these regions naturally. Keep all surrounding scene details and physical signs unchanged.",
+      ),
     );
     const background = await saveImage(
       id,
       userId,
-      patches.length
-        ? await sharp(clean).composite(patches).png().toBuffer()
-        : clean,
+      await png(mergeRegion(original, edited, editable)),
     );
     let layers = {
       background,

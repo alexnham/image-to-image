@@ -106,3 +106,8 @@ local build.
 Before a public launch, verify the OpenAI project's data-sharing opt-ins are off,
 configure a real alert sender, and test sign-in and HEIC uploads on target phones.
 The app does not claim zero provider retention or universal segmentation quality.
+
+Google identity now uses the verified provider account ID. Existing legacy JWTs
+continue to work until a new sign-in. If the old app created projects under
+randomized user IDs, preserve those rows and establish a verified mapping before
+reassigning them; the app does not guess ownership or delete legacy data.

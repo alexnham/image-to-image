@@ -23,11 +23,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       : []),
   ],
   callbacks: {
-    jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
+    jwt({ token, user, account }) {
+      if (account?.provider === "google") token.sub = account.providerAccountId;
+      else if (user?.id) token.sub = user.id;
       return token;
     },
-    // JWT sessions have no user id by default; the Google account id (token.sub) is ours.
+    // Keep the verified provider identity stable across separate Google sign-ins.
     session({ session, token }) {
       session.user.id = token.sub!;
       return session;

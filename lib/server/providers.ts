@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import type { Layers, Providers } from "@/lib/engine/engine";
 import { contactShadow } from "@/lib/shadow";
-import { transferLight } from "@/lib/relight";
+import { transferBrightness } from "@/lib/relight";
 import { mergeRegion } from "@/lib/pixels";
 import { readImage, decode, png, saveImage } from "./assets";
 import { render } from "./render";
@@ -103,7 +103,7 @@ export function providers(projectId: string, userId: string): Providers {
         }
       return save(
         await png(
-          transferLight(
+          transferBrightness(
             original,
             { ...original, data },
             Math.max(2, Math.round(original.width / 64)),

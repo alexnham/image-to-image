@@ -124,3 +124,31 @@ Production-mode HTTP smoke checks also passed: public home and Google provider,
 no local-preview provider or button, bundled model/WASM/font assets, and an
 owner-authenticated PNG export. Blob path validation rejects prefix lookalikes,
 URL escapes and traversal before any client-supplied image is read.
+
+## Merge review corrections
+
+The review found six defects beyond the original happy-path checks. Regression
+fixtures now cover stable Google IDs across separate OAuth logins, odd/narrow
+4:5 export dimensions, crop/rotation coordinate conversion in the real planner,
+region-only upload cleanup, replacement products with different framing, saved
+lighting after swaps, and use of the selected bounded brightness transfer.
+The previously failing cases were reproduced before their fixes. These checks
+use local fixtures and fake provider output; no paid calls were needed.
+
+Preparation now merges only product/contact-shadow and detected overlay cleanup
+regions, preserving other background and in-scene text pixels. The local shadow
+cleanup uses a bounded base band; long cast shadows may still need the brush.
+Swap aligns visible product bounds and preserves transform plus recorded lighting.
+Older POC versions without lighting metadata retain original lighting on a swap.
+
+Google sign-ins now use the verified provider account ID. Existing JWT sessions
+keep their existing IDs until signing in again. Legacy random-ID project rows
+cannot be automatically attributed because the original schema did not persist
+Google account mappings; any such records require a verified operator mapping,
+not an inferred reassignment. No legacy records are deleted by this change.
+
+The remaining ticket gaps include phone/HEIC verification, benchmarks and account
+privacy controls, confidence-based selection skipping, text dragging, pinch
+resizing, history thumbnails, explicit variation selection, operational email
+verification, and complete return-visit instrumentation. These are not claimed
+complete by merging the POC.

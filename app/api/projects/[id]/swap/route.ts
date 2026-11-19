@@ -9,8 +9,8 @@ import {
   UserError,
 } from "@/lib/server/access";
 import { latest, versionStore } from "@/lib/server/versions";
-import { readImage, decode, png, saveImage } from "@/lib/server/assets";
-import { extractSubject } from "@/lib/pixels";
+import { readImage, saveImage } from "@/lib/server/assets";
+import { fitSubject } from "@/lib/server/fit-subject";
 import { providers } from "@/lib/server/providers";
 export async function POST(
   request: Request,
@@ -40,46 +40,15 @@ export async function POST(
     const meta = await sharp(
       await readImage(base.layers.background),
     ).metadata();
-    const image = await decode(
-      await sharp(await readImage(input.imagePath), {
-        limitInputPixels: 2048 * 2048,
-      })
-        .resize(meta.width, meta.height, {
-          fit: "contain",
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        })
-        .png()
-        .toBuffer(),
+    const fitted = await fitSubject(
+      await readImage(base.layers.subject.original),
+      await readImage(input.imagePath),
+      await readImage(input.maskPath),
+      meta.width!,
+      meta.height!,
     );
-    const mask = new Uint8ClampedArray(
-      await sharp(await readImage(input.maskPath), {
-        limitInputPixels: 2048 * 2048,
-      })
-        .resize(meta.width, meta.height, {
-          fit: "contain",
-          background: "black",
-        })
-        .removeAlpha()
-        .greyscale()
-        .raw()
-        .toBuffer(),
-    );
-    if (!mask.some((value) => value > 128))
-      throw new UserError("Select your product before continuing.");
-    const cutout = await saveImage(
-      id,
-      userId,
-      await png(extractSubject(image, mask)),
-    );
-    const matte = await saveImage(
-      id,
-      userId,
-      await sharp(Buffer.from(mask), {
-        raw: { width: image.width, height: image.height, channels: 1 },
-      })
-        .png()
-        .toBuffer(),
-    );
+    const cutout = await saveImage(id, userId, fitted.image);
+    const matte = await saveImage(id, userId, fitted.matte);
     const layers = {
       ...base.layers,
       subject: {
@@ -89,7 +58,13 @@ export async function POST(
         matte,
       },
     };
-    layers.shadow = await providers(id, userId).renderShadow(layers);
+    const adapter = providers(id, userId);
+    if (layers.subject.lighting)
+      layers.subject.image = await adapter.relight(
+        layers,
+        layers.subject.lighting,
+      );
+    layers.shadow = await adapter.renderShadow(layers);
     return Response.json({
       version: await versionStore(userId, token, false).append(
         id,

@@ -84,3 +84,22 @@ export function overlapsMask(
       if (mask[y * width + x] > 32) return true;
   return false;
 }
+
+/** Bounds of visible subject pixels, excluding near-transparent detector noise. */
+export function subjectBounds(raster: Raster) {
+  let left = raster.width,
+    top = raster.height,
+    right = -1,
+    bottom = -1;
+  for (let y = 0; y < raster.height; y++)
+    for (let x = 0; x < raster.width; x++)
+      if (raster.data[(y * raster.width + x) * 4 + 3] > 8) {
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x);
+        bottom = Math.max(bottom, y);
+      }
+  return right < left
+    ? null
+    : { left, top, width: right - left + 1, height: bottom - top + 1 };
+}
