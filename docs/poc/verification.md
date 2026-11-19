@@ -98,7 +98,8 @@ production hosting rollout remain outside the completed local verification.
 
 ## Final rerun
 
-- Fixture suite: **43 passed**, 1 explicit live-DB check skipped by default.
+- Fixture suite: **47 passed**, 1 explicit live-DB check skipped by default,
+  after integrating the latest main branch narrow-image and relighting fixes.
 - Opt-in real Neon check: **1 passed**, including simultaneous reservations and
   cap refusal without a provider call; test reservations reconciled to zero.
 - Lint and TypeScript: passed. Production build: passed, all routes emitted.
