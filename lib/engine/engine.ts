@@ -1,12 +1,34 @@
-import { Plan, type Operation, type Region, type RelightParams } from "./operations";
+import { UserError } from "../errors";
+import {
+  Plan,
+  type Operation,
+  type Region,
+  type RelightParams,
+} from "./operations";
 
 /** A stored image (Blob pathname). Pixels never travel through the engine itself. */
 export type ImageRef = string;
 
-export type TextLayer = { id: string; text: string; x: number; y: number; size: number; color: string };
-export type Adjustments = { brightness: number; contrast: number; saturation: number; warmth: number; grain: number };
+export type TextLayer = {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  font?: "sans" | "serif" | "display";
+};
+export type Adjustments = {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  warmth: number;
+  grain: number;
+};
 
 export type Layers = {
+  crop?: "original" | "square" | "portrait";
+  rotation?: 0 | 90 | 180 | 270;
   background: ImageRef;
   subject: {
     /** The uploaded subject pixels. Never replaced by any operation. */
@@ -19,13 +41,19 @@ export type Layers = {
     y: number;
     scale: number;
     flipped: boolean;
+    lighting?: RelightParams;
   };
   shadow: ImageRef | null;
   texts: TextLayer[];
   adjust: Adjustments;
 };
 
-export type Version = { projectId: string; number: number; layers: Layers; prompt: string | null };
+export type Version = {
+  projectId: string;
+  number: number;
+  layers: Layers;
+  prompt: string | null;
+};
 
 /** Model-backed steps. Each returns a new stored image; tests use fakes. */
 export type Providers = {
@@ -36,7 +64,9 @@ export type Providers = {
   removeObject(image: ImageRef, region: Region): Promise<ImageRef>;
 };
 
-export type Planner = { plan(prompt: string, layers: Layers): Promise<unknown> };
+export type Planner = {
+  plan(prompt: string, layers: Layers): Promise<unknown>;
+};
 
 export type VersionStore = {
   /** The given version, or the latest when `number` is omitted. */
@@ -64,38 +94,89 @@ const PROGRESS: Record<Operation["op"], string> = {
 };
 
 // Steps after which the shadow no longer matches and must be redrawn.
-const RESHADOW = new Set<Operation["op"]>(["replace_background", "move_subject", "scale_subject", "add_shadow"]);
+const RESHADOW = new Set<Operation["op"]>([
+  "replace_background",
+  "move_subject",
+  "scale_subject",
+  "add_shadow",
+]);
 
 const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
 
-async function apply(layers: Layers, op: Operation, providers: Providers): Promise<Layers> {
+async function apply(
+  layers: Layers,
+  op: Operation,
+  providers: Providers,
+): Promise<Layers> {
   switch (op.op) {
     case "replace_background":
-      return { ...layers, background: await providers.replaceBackground(layers, op.scene) };
+      return {
+        ...layers,
+        background: await providers.replaceBackground(layers, op.scene),
+      };
     case "relight": {
       const { op: _, ...light } = op;
-      return { ...layers, subject: { ...layers.subject, image: await providers.relight(layers, light) } };
+      return {
+        ...layers,
+        subject: {
+          ...layers.subject,
+          image: await providers.relight(layers, light),
+          lighting: light,
+        },
+      };
     }
     case "add_shadow":
       return layers; // drawn once after all steps
     case "add_text":
       return {
         ...layers,
-        texts: [...layers.texts, { id: crypto.randomUUID(), text: op.text, x: op.x, y: op.y, size: op.size ?? 0.08, color: op.color ?? "#ffffff" }],
+        texts: [
+          ...layers.texts,
+          {
+            id: crypto.randomUUID(),
+            text: op.text,
+            x: op.x,
+            y: op.y,
+            size: op.size ?? 0.08,
+            color: op.color ?? "#ffffff",
+          },
+        ],
       };
     case "set_text": {
-      if (!layers.texts.some((t) => t.id === op.id)) throw new Error(`No text layer ${op.id}`);
+      if (!layers.texts.some((t) => t.id === op.id))
+        throw new Error(`No text layer ${op.id}`);
       const { op: _, id, ...changes } = op;
-      return { ...layers, texts: layers.texts.map((t) => (t.id === id ? { ...t, ...changes } : t)) };
+      return {
+        ...layers,
+        texts: layers.texts.map((t) =>
+          t.id === id ? { ...t, ...changes } : t,
+        ),
+      };
     }
     case "remove_text":
       return { ...layers, texts: layers.texts.filter((t) => t.id !== op.id) };
     case "move_subject":
-      return { ...layers, subject: { ...layers.subject, x: clamp(layers.subject.x + op.dx), y: clamp(layers.subject.y + op.dy) } };
+      return {
+        ...layers,
+        subject: {
+          ...layers.subject,
+          x: clamp(layers.subject.x + op.dx),
+          y: clamp(layers.subject.y + op.dy),
+        },
+      };
     case "scale_subject":
-      return { ...layers, subject: { ...layers.subject, scale: clamp(layers.subject.scale * op.factor, 0.05, 5) } };
+      return {
+        ...layers,
+        subject: {
+          ...layers.subject,
+          scale: clamp(layers.subject.scale * op.factor, 0.05, 5),
+        },
+      };
     case "remove_object":
-      return { ...layers, background: await providers.removeObject(layers.background, op.region) };
+      return {
+        ...layers,
+        background: await providers.removeObject(layers.background, op.region),
+      };
     case "adjust": {
       const { op: _, ...changes } = op;
       return { ...layers, adjust: { ...layers.adjust, ...changes } };
@@ -110,7 +191,17 @@ async function apply(layers: Layers, op: Operation, providers: Providers): Promi
  */
 export async function runPrompt(
   deps: { planner: Planner; providers: Providers; store: VersionStore },
-  { projectId, prompt, fromVersion, onProgress }: { projectId: string; prompt: string; fromVersion?: number; onProgress?: (label: string) => void },
+  {
+    projectId,
+    prompt,
+    fromVersion,
+    onProgress,
+  }: {
+    projectId: string;
+    prompt: string;
+    fromVersion?: number;
+    onProgress?: (label: string) => void;
+  },
 ): Promise<PromptResult> {
   const base = await deps.store.get(projectId, fromVersion);
   if (!base) return { kind: "failed", message: "Project not found." };
@@ -119,10 +210,20 @@ export async function runPrompt(
   try {
     // The planner is an LLM: its output is untrusted until it matches the operation list.
     const parsed = Plan.safeParse(await deps.planner.plan(prompt, base.layers));
-    if (!parsed.success) return { kind: "failed", message: "Couldn't understand that edit. Try rephrasing it." };
+    if (!parsed.success)
+      return {
+        kind: "failed",
+        message: "Couldn't understand that edit. Try rephrasing it.",
+      };
     plan = parsed.data;
-  } catch {
-    return { kind: "failed", message: "Something went wrong. Please try again." };
+  } catch (error) {
+    return {
+      kind: "failed",
+      message:
+        error instanceof UserError
+          ? error.message
+          : "Something went wrong. Please try again.",
+    };
   }
   if (plan.refusal || plan.operations.length === 0) {
     return { kind: "refused", message: plan.refusal ?? "Can't do that yet." };
@@ -138,9 +239,25 @@ export async function runPrompt(
       onProgress?.(PROGRESS.add_shadow);
       layers = { ...layers, shadow: await deps.providers.renderShadow(layers) };
     }
-  } catch {
-    return { kind: "failed", message: "That edit failed and nothing was changed. It didn't use up a prompt." };
+  } catch (error) {
+    return {
+      kind: "failed",
+      message:
+        error instanceof UserError
+          ? error.message
+          : "That edit failed and nothing was changed. It didn't use up a prompt.",
+    };
   }
 
-  return { kind: "done", version: await deps.store.append(projectId, layers, prompt) };
+  try {
+    return {
+      kind: "done",
+      version: await deps.store.append(projectId, layers, prompt),
+    };
+  } catch {
+    return {
+      kind: "failed",
+      message: "Could not save the edit. No prompt was charged.",
+    };
+  }
 }
