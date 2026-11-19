@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Raster } from "./raster";
-import { transferLight } from "./relight";
+import { transferBrightness, transferLight } from "./relight";
 
 const W = 48;
 const H = 48;
@@ -51,5 +51,38 @@ describe("transferLight", () => {
   it("rejects mismatched sizes", () => {
     const original = raster(() => [0, 0, 0, 255]);
     expect(() => transferLight(original, { ...original, width: 10 }, 4)).toThrow(/size/);
+  });
+});
+
+describe("transferBrightness", () => {
+  it("transfers brightness without taking on the model's color cast", () => {
+    const original = raster((x, y) => {
+      const gray = checker(x, y) / 2;
+      return [gray, gray, gray, 255];
+    });
+    const relit = raster(() => [240, 180, 30, 255]);
+    const out = transferBrightness(original, relit, 4);
+    const [r, g, b] = px(out, 20, 20);
+    expect(r).toBeGreaterThan(50);
+    expect(r).toBeLessThan(60);
+    expect([r, g, b]).toEqual([r, r, r]);
+    expect(px(out, 21, 20)[0]).toBeGreaterThan(r);
+  });
+
+  it("dampens gain near the edge of the matte and keeps the original alpha", () => {
+    const original = raster((x) => [100, 100, 100, x < W / 2 ? 255 : 0]);
+    const relit = raster(() => [255, 255, 255, 255]);
+    const out = transferBrightness(original, relit, 4);
+    const edge = px(out, 23, 24);
+    expect(edge[0]).toBeGreaterThan(100);
+    expect(edge[0]).toBeLessThan(px(out, 8, 24)[0]);
+    expect(edge[3]).toBe(255);
+    expect(px(out, 24, 24)[3]).toBe(0);
+  });
+
+  it("limits brightening to the available headroom instead of clipping one channel", () => {
+    const original = raster(() => [255, 120, 20, 255]);
+    const relit = raster(() => [255, 255, 255, 255]);
+    expect(px(transferBrightness(original, relit), 24, 24)).toEqual([255, 120, 20, 255]);
   });
 });
