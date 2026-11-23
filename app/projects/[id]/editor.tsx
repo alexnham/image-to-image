@@ -7,6 +7,7 @@ import type { Manual } from "@/lib/editor-schema";
 import { drawLayers } from "@/lib/canvas";
 import { prepareImage, validateFile } from "@/lib/image";
 import { SubjectCheck } from "@/app/subject-check";
+import { VersionThumbnail } from "./version-thumbnail";
 
 type Box = {
   text: string;
@@ -360,6 +361,9 @@ export function Editor({
           onConfirm={prepare}
         />
         <div className="notice">
+          Confirm your product to create the first saved version. You can then
+          open the History tab in the editor to see your saved versions.
+          {" "}
           Product detection runs on your device. Preparing a clean background
           uses the AI service but does not spend a free prompt.
         </div>
@@ -920,8 +924,11 @@ export function Editor({
                             setBrushMode(false);
                           }}
                         >
-                          <strong>Version {v.number + 1}</strong>
-                          <span>{v.prompt ?? "Original photo"}</span>
+                          <VersionThumbnail projectId={id} number={v.number} />
+                          <span className="version-description">
+                            <strong>Version {v.number + 1}</strong>
+                            <span>{v.prompt ?? "Original photo"}</span>
+                          </span>
                         </button>
                       </li>
                     ))}
