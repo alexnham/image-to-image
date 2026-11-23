@@ -5,12 +5,16 @@ import { useRef, useState } from "react";
 import { createProject } from "@/app/actions";
 import { prepareImage, validateFile } from "@/lib/image";
 
-export function UploadButton({ userId }: { userId: string }) {
+export function UploadButton({ userId, storageConfigured }: {
+  userId: string;
+  storageConfigured: boolean;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
   const busy = status === "Preparing…" || status === "Uploading…";
 
   async function onChange(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!storageConfigured) return;
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -38,7 +42,7 @@ export function UploadButton({ userId }: { userId: string }) {
     <div className="flex flex-col items-center gap-3">
       <button
         className="primary"
-        disabled={busy}
+        disabled={busy || !storageConfigured}
         onClick={() => input.current?.click()}
       >
         {busy ? status : "Upload a photo"}
@@ -49,8 +53,14 @@ export function UploadButton({ userId }: { userId: string }) {
         accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         className="sr-only"
         onChange={onChange}
-        disabled={busy}
+        disabled={busy || !storageConfigured}
       />
+
+      {!storageConfigured && (
+        <p role="alert" className="text-sm text-red-600">
+          Image uploads are unavailable. Please ask the app owner to configure image storage.
+        </p>
+      )}
 
       {status && !busy && (
         <p role="alert" className="text-sm text-red-600">

@@ -110,7 +110,10 @@ async function Dashboard() {
           <h2>
             Your projects <span className="count">{projects.length}</span>
           </h2>
-          <UploadButton userId={userId} />
+          <UploadButton
+            userId={userId}
+            storageConfigured={Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim())}
+          />
         </div>
         {projects.length ? (
           <ul className="project-grid">

@@ -91,4 +91,5 @@ export async function drawLayers(
       outputWidth,
       outputHeight,
     );
+  return { width, height };
 }
