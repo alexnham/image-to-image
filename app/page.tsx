@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { signInWithGoogle, signOutUser, signInLocally } from "@/app/actions";
 import { UploadButton } from "@/app/upload-button";
 import { sql, type Project } from "@/lib/db";
+import { formatProjectDate } from "@/lib/project-date";
 export default function Home() {
   return (
     <main className="home">
@@ -114,7 +115,9 @@ async function Dashboard() {
         </div>
         {projects.length ? (
           <ul className="project-grid">
-            {projects.map((p) => (
+            {projects.map((p) => {
+              const date = formatProjectDate(p.created_at);
+              return (
               <li key={p.id}>
                 <Link href={`/projects/${p.id}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- authenticated private image */}
@@ -124,16 +127,14 @@ async function Dashboard() {
                   />
                   <div className="project-caption">
                     <span>Photo project</span>
-                    <time dateTime={p.created_at}>
-                      {new Date(p.created_at).toLocaleDateString("en-CA", {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                    <time dateTime={date.dateTime}>
+                      {date.label}
                     </time>
                   </div>
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         ) : (
           <div className="empty-projects">
