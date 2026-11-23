@@ -7,6 +7,12 @@ import { MAX_UPLOAD_BYTES, STORED_TYPES } from "@/lib/image";
 // Issues a short-lived token so the browser uploads straight to Blob
 // (Vercel functions cap request bodies at 4.5MB).
 export async function POST(request: Request) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    return NextResponse.json(
+      { error: "Image uploads are unavailable. Please ask the app owner to configure image storage." },
+      { status: 503 },
+    );
+  }
   try {
     const body = (await request.json()) as HandleUploadBody;
     const result = await handleUpload({

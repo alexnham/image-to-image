@@ -7,6 +7,9 @@ import type { Manual } from "@/lib/editor-schema";
 import { drawLayers } from "@/lib/canvas";
 import { prepareImage, validateFile } from "@/lib/image";
 import { SubjectCheck } from "@/app/subject-check";
+import { EditorGesture, type Dimensions } from "@/lib/editor-gesture";
+import { frame } from "@/lib/frame";
+import { FONT_FAMILIES } from "@/lib/fonts";
 
 type Box = {
   text: string;
@@ -76,12 +79,15 @@ export function Editor({
     [boxes, setBoxes] = useState<Box[] | null>(null),
     [swap, setSwap] = useState<{ src: string; blob: Blob } | null>(null);
   const pointer = useRef<{
+    id: number;
     x: number;
     y: number;
     layers: Layers;
     paintX?: number;
     paintY?: number;
   } | null>(null);
+  const gesture = useRef<EditorGesture | null>(null);
+  const dimensions = useRef<Dimensions | null>(null);
   useEffect(() => {
     if (!layers || !canvas.current) return;
     let cancelled = false;
@@ -91,8 +97,9 @@ export function Editor({
       layers,
       (path) => `/api/projects/${id}/asset?path=${encodeURIComponent(path)}`,
     )
-      .then(() => {
+      .then((size) => {
         if (cancelled || !canvas.current) return;
+        dimensions.current = size;
         canvas.current.width = target.width;
         canvas.current.height = target.height;
         canvas.current.getContext("2d")!.drawImage(target, 0, 0);
@@ -249,21 +256,55 @@ export function Editor({
     };
   }
   function startDrag(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (busy || !layers) return;
-    if ((layers.crop && layers.crop !== "original") || layers.rotation) {
+    if (busy || !layers || !dimensions.current || e.button !== 0) return;
+    if (brushMode && ((layers.crop && layers.crop !== "original") || layers.rotation)) {
       setError(
-        "Use Original crop and 0° rotation to drag. Position sliders work in any crop.",
+        "Use Original crop and 0° rotation to paint a removal mask.",
       );
       return;
     }
+    e.preventDefault();
+    if (brushMode) {
+      if (pointer.current) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      pointer.current = { id: e.pointerId, ...point(e), layers };
+      paint(e);
+      return;
+    }
+    const size = dimensions.current;
+    const view = point(e);
+    const p = frame(size.width, size.height, layers).fromView(view.x, view.y);
+    if (!gesture.current) {
+      let textId: string | undefined;
+      if (tab === "text") {
+        const ctx = e.currentTarget.getContext("2d")!;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const viewFrame = frame(size.width, size.height, layers);
+        // Keep a small touch target around visible glyphs, even for small text.
+        const pad = 12 * viewFrame.width / rect.width;
+        textId = layers.texts.findLast((text) => {
+          ctx.font = `700 ${text.size * size.width}px "${FONT_FAMILIES[text.font ?? "sans"]}"`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          const bounds = ctx.measureText(text.text);
+          const x = (p.x - text.x) * size.width;
+          const y = (p.y - text.y) * size.height;
+          return x >= -bounds.actualBoundingBoxLeft - pad &&
+            x <= bounds.actualBoundingBoxRight + pad &&
+            y >= -bounds.actualBoundingBoxAscent - pad &&
+            y <= bounds.actualBoundingBoxDescent + pad;
+        })?.id;
+        // Empty space in the Text tool must not move the product.
+        if (!textId) return;
+      }
+      gesture.current = new EditorGesture(layers, size, textId);
+    }
+    gesture.current.down(e.pointerId, p);
+    if (!gesture.current.has(e.pointerId)) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    pointer.current = { ...point(e), layers };
-    setPast((p) => [...p.slice(-49), layers]);
-    setFuture([]);
-    if (brushMode) paint(e);
   }
   function paint(e: React.PointerEvent<HTMLCanvasElement>) {
-    if (!pointer.current || !brush.current) return;
+    if (!pointer.current || pointer.current.id !== e.pointerId || !brush.current) return;
     const { x, y } = point(e);
     const ctx = brush.current.getContext("2d")!,
       r = e.currentTarget.getBoundingClientRect(),
@@ -293,22 +334,28 @@ export function Editor({
     s.paintY = y;
   }
   function drag(e: React.PointerEvent<HTMLCanvasElement>) {
-    const start = pointer.current;
-    if (!start) return;
     if (brushMode) {
       paint(e);
       return;
     }
+    const active = gesture.current, size = dimensions.current;
+    if (!active?.has(e.pointerId) || !size) return;
     const { x, y } = point(e);
-    setLayers({
-      ...start.layers,
-      subject: {
-        ...start.layers.subject,
-        x: Math.max(0, Math.min(1, start.layers.subject.x + x - start.x)),
-        y: Math.max(0, Math.min(1, start.layers.subject.y + y - start.y)),
-      },
-    });
-    setDirty(true);
+    const p = frame(size.width, size.height, active.original).fromView(x, y);
+    const wasChanged = active.changed;
+    const next = active.move(e.pointerId, p);
+    if (!wasChanged && active.changed) {
+      setPast((past) => [...past.slice(-49), active.original]);
+      setFuture([]);
+      setError("");
+    }
+    setLayers(next);
+    if (active.changed) setDirty(true);
+  }
+  function endDrag(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (pointer.current?.id === e.pointerId) pointer.current = null;
+    gesture.current?.up(e.pointerId);
+    if (!gesture.current?.active) gesture.current = null;
   }
   async function erase() {
     await task("Removing marked object…", async () => {
@@ -454,15 +501,12 @@ export function Editor({
             <div className="canvas-wrap">
               <canvas
                 ref={canvas}
-                aria-label="Your ad; drag to move product"
+                aria-label="Your ad; drag to move product or text, pinch to resize product"
                 onPointerDown={startDrag}
                 onPointerMove={drag}
-                onPointerUp={() => {
-                  pointer.current = null;
-                }}
-                onPointerCancel={() => {
-                  pointer.current = null;
-                }}
+                onPointerUp={endDrag}
+                onPointerCancel={endDrag}
+                onLostPointerCapture={endDrag}
               />
               <canvas
                 ref={brush}
@@ -474,7 +518,9 @@ export function Editor({
           <p className="canvas-hint">
             {brushMode
               ? "Paint over the object, then choose Remove marked area. The product is protected."
-              : "Drag your product to find its place."}
+              : tab === "text"
+                ? "Drag text on the photo to move it. Use the controls to edit its words and style."
+                : "Drag your product to move it. Pinch with two fingers to resize."}
           </p>
           <form onSubmit={runPrompt} className="prompt-form">
             <label htmlFor="prompt">Describe your next edit</label>
@@ -549,7 +595,7 @@ export function Editor({
                       <input
                         type="range"
                         min={key === "scale" ? 0.05 : 0}
-                        max={key === "scale" ? 3 : 1}
+                        max={key === "scale" ? 5 : 1}
                         step="0.01"
                         value={layers.subject[key]}
                         onChange={(e) =>
